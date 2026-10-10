@@ -129,7 +129,7 @@ function ProjectPage() {
   );
 }
 
-type ProjectData = { title: string; description: string | null; questions: Question[]; client: { name: string; phone: string; email: string; company: string } };
+type ProjectData = { title: string; description: string | null; questions: Question[]; client: Record<"name" | "phone" | "email" | "company", string | null> };
 
 function ClarifyPanel({ id, project, onAdded }: { id: string; project: ProjectData; onAdded: () => void }) {
   const clarify = useServerFn(clarifyProject);
@@ -158,7 +158,7 @@ function ClarifyPanel({ id, project, onAdded }: { id: string; project: ProjectDa
     if (!extra.length) return;
     setBusy(true);
     try {
-      await upd({ data: { id, title: project.title, description: project.description ?? "", questions: [...project.questions, ...extra], client: project.client } });
+      await upd({ data: { id, title: project.title, description: project.description ?? "", questions: [...project.questions, ...extra], client: { name: project.client.name ?? "", phone: project.client.phone ?? "", email: project.client.email ?? "", company: project.client.company ?? "" } } });
       toast.success(`Добавлено вопросов в бриф: ${extra.length}`);
       setRes({ ...res, questions: res.questions.filter((q) => !picked.has(q.id)) });
       onAdded();
