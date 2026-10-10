@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { clarifyProject, deleteProject, getProject, regenerateOffer, saveOffer, updateProject } from "@/lib/projects.functions";
+import { clarifyProject, deleteProject, listAiAudit, getProject, regenerateOffer, saveOffer, updateProject } from "@/lib/projects.functions";
 import type { Clarification, Offer, Question } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { copyLink, StatusBadge } from "@/components/admin-helpers";
@@ -55,7 +55,7 @@ function ProjectPage() {
       </div>
 
       <Tabs defaultValue="answers" className="mt-8">
-        <TabsList><TabsTrigger value="answers">Ответы</TabsTrigger><TabsTrigger value="clarify">Уточнения ИИ</TabsTrigger><TabsTrigger value="offer">КП</TabsTrigger><TabsTrigger value="settings">Проект и бриф</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="answers">Ответы</TabsTrigger><TabsTrigger value="clarify">Уточнения ИИ</TabsTrigger><TabsTrigger value="offer">КП</TabsTrigger><TabsTrigger value="audit">Что видел ИИ</TabsTrigger><TabsTrigger value="settings">Проект и бриф</TabsTrigger></TabsList>
 
         <TabsContent value="answers" className="mt-6">
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -77,6 +77,10 @@ function ProjectPage() {
               <p className="pt-2 text-xs text-muted-foreground">Согласие на обработку ПДн: {p.consent_at ? new Date(p.consent_at).toLocaleString("ru-RU") : "не получено"}</p>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="audit" className="mt-6">
+          <AuditPanel id={id} />
         </TabsContent>
 
         <TabsContent value="clarify" className="mt-6">
@@ -203,6 +207,32 @@ function ClarifyPanel({ id, project, onAdded }: { id: string; project: ProjectDa
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+const KIND_LABEL: Record<string, string> = { offer: "Генерация КП", clarify: "Уточняющие вопросы", brief_questions: "Вопросы брифа" };
+
+function AuditPanel({ id }: { id: string }) {
+  const list = useServerFn(listAiAudit);
+  const { data, isLoading } = useQuery({ queryKey: ["audit", id], queryFn: () => list({ data: { id } }) });
+  if (isLoading) return <p className="text-muted-foreground">Загрузка…</p>;
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">Точный текст каждого запроса к ИИ. Вместо персональных данных в нём стоят метки {"{{CLIENT_NAME}}"}, {"{{PHONE}}"}, {"{{EMAIL}}"}, {"{{COMPANY}}"}. Перед каждой отправкой проходит финальная проверка на утечку.</p>
+      {!data?.length && <p className="rounded-2xl border bg-card p-8 text-muted-foreground">Запросов к ИИ по проекту ещё не было.</p>}
+      {data?.map((r) => (
+        <details key={r.id} className="rounded-2xl border bg-card p-5">
+          <summary className="flex cursor-pointer flex-wrap items-center gap-3 text-sm">
+            <span className="font-semibold">{KIND_LABEL[r.kind] ?? r.kind}</span>
+            <span className="text-muted-foreground">{new Date(r.created_at).toLocaleString("ru-RU")}</span>
+            {r.pii_check_passed
+              ? <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">ПДн скрыты — проверка пройдена</span>
+              : <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs text-destructive">Заблокировано: найдены ПДн</span>}
+          </summary>
+          <pre className="mt-4 max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-background/60 p-4 text-xs">{r.masked_input}</pre>
+        </details>
+      ))}
     </div>
   );
 }

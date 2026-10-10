@@ -6,7 +6,7 @@ import { generateOfferAI } from "./offer-ai.server";
 import { generateBriefQuestionsAI } from "./brief-ai.server";
 import { clarifyAI } from "./clarify-ai.server";
 import { pruneHiddenAnswers } from "./conditions";
-import { fillDeep, maskDeep, maskPII } from "./pii";
+import { assertNoPII, fillDeep, maskDeep, maskPII, type ClientPII } from "./pii";
 import type { Answers, Offer, Question } from "./types";
 
 const questionSchema = z.object({
@@ -40,6 +40,19 @@ async function admin() {
   return supabaseAdmin;
 }
 
+/** Final leak check + audit record of exactly what goes to the AI. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function guardAI(sb: any, projectId: string | null, kind: string, payload: unknown, pii: ClientPII) {
+  const text = JSON.stringify(payload, null, 2);
+  try {
+    assertNoPII(text, pii);
+  } catch (e) {
+    await sb.from("ai_audit").insert({ project_id: projectId, kind, masked_input: "[заблокировано: обнаружены ПДн, текст не сохранён]", pii_check_passed: false });
+    throw e;
+  }
+  await sb.from("ai_audit").insert({ project_id: projectId, kind, masked_input: text.slice(0, 50000), pii_check_passed: true });
+}
+
 /** Shared generation: mask -> AI -> store offer with placeholders. */
 async function runGeneration(projectId: string) {
   const sb = await admin();
@@ -48,12 +61,14 @@ async function runGeneration(projectId: string) {
   if (!p) throw new Error("Проект не найден");
   const pii = await decryptRow(piiRow);
   try {
-    const offer = await generateOfferAI({
+    const input = {
       title: maskPII(p.title, pii),
       description: maskPII(p.description, pii),
-      questions: p.questions as Question[],
+      questions: maskDeep(p.questions as Question[], pii),
       answers: maskDeep((p.answers ?? {}) as Answers, pii),
-    });
+    };
+    await guardAI(sb, projectId, "offer", input, pii);
+    const offer = await generateOfferAI(input);
     // Strip anything that slipped into the AI output too
     const safe = maskDeep(offer, pii);
     await sb.from("projects").update({ offer: safe, status: "ready", updated_at: new Date().toISOString() }).eq("id", projectId);
@@ -112,10 +127,9 @@ export const generateBriefQuestions = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context);
     // Mask client PII before anything reaches the AI.
-    return generateBriefQuestionsAI({
-      title: maskPII(data.title, data.client),
-      description: maskPII(data.description, data.client),
-    });
+    const input = { title: maskPII(data.title, data.client), description: maskPII(data.description, data.client) };
+    await guardAI(context.supabase, null, "brief_questions", input, data.client);
+    return generateBriefQuestionsAI(input);
   });
 
 export const clarifyProject = createServerFn({ method: "POST" })
@@ -137,11 +151,19 @@ export const clarifyProject = createServerFn({ method: "POST" })
       data.notes ? `Дополнительно:\n${data.notes}` : "",
     ].join("\n");
     // Mask client PII before anything reaches the AI.
-    return clarifyAI({
-      title: maskPII(p.title, client),
-      description: maskPII(data.description, client),
-      answersText: maskPII(answersText, client),
-    });
+    const input = { title: maskPII(p.title, client), description: maskPII(data.description, client), answersText: maskPII(answersText, client) };
+    await guardAI(context.supabase, data.id, "clarify", input, client);
+    return clarifyAI(input);
+  });
+
+export const listAiAudit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: rows, error } = await context.supabase.from("ai_audit").select("id,kind,masked_input,pii_check_passed,created_at").eq("project_id", data.id).order("created_at", { ascending: false }).limit(50);
+    if (error) throw new Error(error.message);
+    return rows ?? [];
   });
 
 export const createProject = createServerFn({ method: "POST" })
@@ -295,8 +317,27 @@ export const getOffer = createServerFn({ method: "GET" })
     const { data: p } = await sb.from("projects").select("id,title,status,offer").eq("offer_token", data.token).maybeSingle();
     if (!p) return null;
     if (!p.offer) return { title: p.title, status: p.status, offer: null, contact: null };
-    const { data: row } = await sb.from("client_pii").select("name_enc,company_enc").eq("project_id", p.id).maybeSingle();
-    const pii = await decryptRow({ name_enc: row?.name_enc ?? null, company_enc: row?.company_enc ?? null, phone_enc: null, email_enc: null });
-    // Substitution happens only here, after generation.
-    return { title: p.title, status: p.status, offer: fillDeep(p.offer as Offer, pii), contact: { name: pii.name, company: pii.company } };
+    const { data: row } = await sb.from("client_pii").select("*").eq("project_id", p.id).maybeSingle();
+    const pii = await decryptRow(row);
+    // Decryption and substitution happen only here, at display time; the stored offer keeps placeholders.
+    return { title: p.title, status: p.status, offer: fillDeep(p.offer as Offer, pii), contact: pii };
+  });
+
+export const getBriefSummary = createServerFn({ method: "GET" })
+  .inputValidator((d) => tokenSchema.parse(d))
+  .handler(async ({ data }) => {
+    const sb = await admin();
+    const { data: p } = await sb.from("projects").select("id,title,questions,answers,submitted_at,consent_at").eq("offer_token", data.token).maybeSingle();
+    if (!p || !p.answers) return null;
+    const { data: row } = await sb.from("client_pii").select("*").eq("project_id", p.id).maybeSingle();
+    const pii = await decryptRow(row);
+    const qs = p.questions as Question[];
+    const ans = p.answers as Answers;
+    return {
+      title: p.title,
+      submittedAt: p.submitted_at,
+      consentAt: p.consent_at,
+      items: qs.filter((q) => ans[q.id] !== undefined).map((q) => ({ label: q.label, answer: ans[q.id]! })),
+      contact: pii,
+    };
   });

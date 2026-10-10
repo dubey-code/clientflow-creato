@@ -18,6 +18,7 @@ import { Route as OfferTokenRouteImport } from './routes/offer.$token'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminIdRouteImport } from './routes/_authenticated/admin.$id'
 import { Route as AuthenticatedAdminNewRouteImport } from './routes/_authenticated/admin.new'
+import { Route as OfferTokenBriefRouteImport } from './routes/offer.$token_.brief'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -63,6 +64,11 @@ const AuthenticatedAdminNewRoute = AuthenticatedAdminNewRouteImport.update({
   path: '/admin/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const OfferTokenBriefRoute = OfferTokenBriefRouteImport.update({
+  id: '/offer/$token_/brief',
+  path: '/offer/$token/brief',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/offer/$token': typeof OfferTokenRoute
   '/admin/$id': typeof AuthenticatedAdminIdRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
+  '/offer/$token/brief': typeof OfferTokenBriefRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/offer/$token': typeof OfferTokenRoute
   '/admin/$id': typeof AuthenticatedAdminIdRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
+  '/offer/$token/brief': typeof OfferTokenBriefRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/offer/$token': typeof OfferTokenRoute
   '/_authenticated/admin/$id': typeof AuthenticatedAdminIdRoute
   '/_authenticated/admin/new': typeof AuthenticatedAdminNewRoute
+  '/offer/$token_/brief': typeof OfferTokenBriefRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/offer/$token'
     | '/admin/$id'
     | '/admin/new'
+    | '/offer/$token/brief'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/offer/$token'
     | '/admin/$id'
     | '/admin/new'
+    | '/offer/$token/brief'
     | '/admin'
   id:
     | '__root__'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/offer/$token'
     | '/_authenticated/admin/$id'
     | '/_authenticated/admin/new'
+    | '/offer/$token_/brief'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -137,6 +149,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   BriefTokenRoute: typeof BriefTokenRoute
   OfferTokenRoute: typeof OfferTokenRoute
+  OfferTokenBriefRoute: typeof OfferTokenBriefRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/offer/$token_/brief': {
+      id: '/offer/$token_/brief'
+      path: '/offer/$token/brief'
+      fullPath: '/offer/$token/brief'
+      preLoaderRoute: typeof OfferTokenBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -229,6 +249,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   BriefTokenRoute: BriefTokenRoute,
   OfferTokenRoute: OfferTokenRoute,
+  OfferTokenBriefRoute: OfferTokenBriefRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

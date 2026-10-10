@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_audit: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          masked_input: string
+          pii_check_passed: boolean
+          project_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          masked_input: string
+          pii_check_passed?: boolean
+          project_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          masked_input?: string
+          pii_check_passed?: boolean
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_audit_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_pii: {
         Row: {
           company_enc: string | null

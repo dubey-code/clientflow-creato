@@ -25,6 +25,7 @@ export const Route = createFileRoute("/offer/$token")({
 
 function OfferPage() {
   const data = Route.useLoaderData();
+  const { token } = Route.useParams();
   const router = useRouter();
   const pending = data && !data.offer && data.status === "submitted";
   useEffect(() => {
@@ -43,5 +44,5 @@ function OfferPage() {
       </div>
     );
   }
-  return <OfferView offer={data.offer} title={data.title} company={data.contact?.company} />;
+  return <OfferView offer={data.offer} title={data.title} company={data.contact?.company} contact={data.contact} token={token} />;
 }
