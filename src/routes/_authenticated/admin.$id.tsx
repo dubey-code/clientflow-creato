@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, RefreshCw, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/AdminShell";
 import { ProjectForm } from "@/components/ProjectForm";
@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { deleteProject, getProject, regenerateOffer, saveOffer, updateProject } from "@/lib/projects.functions";
-import type { Offer } from "@/lib/types";
+import { clarifyProject, deleteProject, getProject, regenerateOffer, saveOffer, updateProject } from "@/lib/projects.functions";
+import type { Clarification, Offer, Question } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
 import { copyLink, StatusBadge } from "@/components/admin-helpers";
 
 export const Route = createFileRoute("/_authenticated/admin/$id")({
@@ -54,7 +55,7 @@ function ProjectPage() {
       </div>
 
       <Tabs defaultValue="answers" className="mt-8">
-        <TabsList><TabsTrigger value="answers">Ответы</TabsTrigger><TabsTrigger value="offer">КП</TabsTrigger><TabsTrigger value="settings">Проект и бриф</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="answers">Ответы</TabsTrigger><TabsTrigger value="clarify">Уточнения ИИ</TabsTrigger><TabsTrigger value="offer">КП</TabsTrigger><TabsTrigger value="settings">Проект и бриф</TabsTrigger></TabsList>
 
         <TabsContent value="answers" className="mt-6">
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -76,6 +77,10 @@ function ProjectPage() {
               <p className="pt-2 text-xs text-muted-foreground">Согласие на обработку ПДн: {p.consent_at ? new Date(p.consent_at).toLocaleString("ru-RU") : "не получено"}</p>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="clarify" className="mt-6">
+          <ClarifyPanel id={id} project={p} onAdded={refresh} />
         </TabsContent>
 
         <TabsContent value="offer" className="mt-6 space-y-4">
@@ -120,6 +125,84 @@ function ProjectPage() {
           </Button>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+type ProjectData = { title: string; description: string | null; questions: Question[]; client: { name: string; phone: string; email: string; company: string } };
+
+function ClarifyPanel({ id, project, onAdded }: { id: string; project: ProjectData; onAdded: () => void }) {
+  const clarify = useServerFn(clarifyProject);
+  const upd = useServerFn(updateProject);
+  const [description, setDescription] = useState(project.description ?? "");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<Clarification | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await clarify({ data: { id, description, notes } });
+      setRes(r);
+      setPicked(new Set(r.questions.map((q) => q.id)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const add = async () => {
+    if (!res) return;
+    const extra = res.questions.filter((q) => picked.has(q.id));
+    if (!extra.length) return;
+    setBusy(true);
+    try {
+      await upd({ data: { id, title: project.title, description: project.description ?? "", questions: [...project.questions, ...extra], client: project.client } });
+      toast.success(`Добавлено вопросов в бриф: ${extra.length}`);
+      setRes({ ...res, questions: res.questions.filter((q) => !picked.has(q.id)) });
+      onAdded();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+      <div className="space-y-4 rounded-2xl border bg-card p-6">
+        <h2 className="text-lg font-semibold">Что проанализировать</h2>
+        <div className="space-y-2"><Label>Описание проекта</Label><Textarea rows={6} maxLength={5000} value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+        <div className="space-y-2">
+          <Label>Дополнительные ответы клиента</Label>
+          <Textarea rows={5} maxLength={10000} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Переписка, заметки со звонка… Ответы из брифа учитываются автоматически." />
+        </div>
+        <p className="text-xs text-muted-foreground">Персональные данные клиента скрываются перед отправкой в ИИ.</p>
+        <Button disabled={busy} onClick={run}><Sparkles /> {busy && !res ? "Анализ…" : "Найти недостающие детали"}</Button>
+      </div>
+      <div className="space-y-4 rounded-2xl border bg-card p-6">
+        {!res && <p className="text-muted-foreground">ИИ определит, чего не хватает для оценки, и предложит уточняющие вопросы.</p>}
+        {res && (
+          <>
+            <div>
+              <h3 className="font-semibold">Не хватает деталей</h3>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">{res.missing.map((m, i) => <li key={i}>{m}</li>)}</ul>
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-semibold">Уточняющие вопросы</h3>
+              {!res.questions.length && <p className="text-sm text-muted-foreground">Все вопросы добавлены.</p>}
+              {res.questions.map((q) => (
+                <label key={q.id} className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+                  <Checkbox className="mt-0.5" checked={picked.has(q.id)} onCheckedChange={(c) => { const n = new Set(picked); if (c) n.add(q.id); else n.delete(q.id); setPicked(n); }} />
+                  <span>{q.label}{q.options?.length ? <span className="block text-xs text-muted-foreground">{q.options.join(" · ")}</span> : null}</span>
+                </label>
+              ))}
+            </div>
+            {!!res.questions.length && <Button disabled={busy || !picked.size} onClick={add}>Добавить выбранные в бриф</Button>}
+          </>
+        )}
+      </div>
     </div>
   );
 }

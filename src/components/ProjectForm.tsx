@@ -51,7 +51,7 @@ export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: Proje
   return (
     <form
       className="grid gap-8 lg:grid-cols-[1fr_1.3fr]"
-      onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await onSubmit(v); } finally { setBusy(false); } }}
+      onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await onSubmit({ ...v, questions: v.questions.map((q) => (q.showIf && !q.showIf.values.length ? { ...q, showIf: undefined } : q)) }); } finally { setBusy(false); } }}
     >
       <div className="space-y-6">
         <section className="space-y-4 rounded-2xl border bg-card p-6">
