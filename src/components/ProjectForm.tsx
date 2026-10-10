@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Lock, Plus, Trash2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { ArrowDown, ArrowUp, Lock, Plus, Sparkles, Trash2 } from "lucide-react";
+import { generateBriefQuestions } from "@/lib/projects.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +23,22 @@ const TYPE_LABEL: Record<QuestionType, string> = { text: "Строка", textare
 export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: ProjectFormValue; submitLabel: string; onSubmit: (v: ProjectFormValue) => Promise<void> }) {
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const genQuestions = useServerFn(generateBriefQuestions);
+  const generate = async () => {
+    if (!v.title.trim()) { toast.error("Сначала заполните название проекта"); return; }
+    setGenerating(true);
+    try {
+      const qs = await genQuestions({ data: { title: v.title, description: v.description, client: v.client } });
+      if (!qs.length) throw new Error("ИИ не вернул вопросы");
+      setV({ ...v, questions: qs });
+      toast.success("Вопросы сгенерированы — отредактируйте их ниже");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка генерации");
+    } finally {
+      setGenerating(false);
+    }
+  };
   const setQ = (i: number, patch: Partial<Question>) => setV({ ...v, questions: v.questions.map((q, j) => (j === i ? { ...q, ...patch } : q)) });
   const move = (i: number, d: number) => {
     const qs = [...v.questions];
@@ -53,12 +72,18 @@ export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: Proje
       </div>
 
       <section className="space-y-4 rounded-2xl border bg-card p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Вопросы брифа</h2>
-          <Button type="button" variant="outline" size="sm" onClick={() => setV({ ...v, questions: [...v.questions, { id: `q${Date.now()}`, label: "", type: "text" }] })}>
-            <Plus /> Вопрос
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" disabled={generating} onClick={generate}>
+              <Sparkles /> {generating ? "Генерация…" : "Сгенерировать ИИ"}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setV({ ...v, questions: [...v.questions, { id: `q${Date.now()}`, label: "", type: "text" }] })}>
+              <Plus /> Вопрос
+            </Button>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">ИИ составит вопросы по названию и описанию проекта. Персональные данные клиента в ИИ не передаются.</p>
         <div className="space-y-3">
           {v.questions.map((q, i) => (
             <div key={q.id} className="space-y-3 rounded-xl border bg-background/40 p-4">
