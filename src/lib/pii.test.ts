@@ -33,3 +33,12 @@ describe("fillPlaceholders", () => {
     expect(fillPlaceholders("Для {{COMPANY}}", {})).toBe("Для вашей компании");
   });
 });
+
+import { assertNoPII as guard } from "./pii";
+describe("assertNoPII", () => {
+  const pii = { name: "Иванов Пётр", phone: "+7 999 123-45-67", email: "a@b.ru" };
+  it("blocks a phone", () => expect(() => guard("звоните +7 900 000 11 22", pii)).toThrow());
+  it("blocks an email", () => expect(() => guard("пишите x@y.com", pii)).toThrow());
+  it("blocks the client's surname", () => expect(() => guard("Для Иванов", pii)).toThrow());
+  it("passes text with placeholders only", () => expect(() => guard("Для {{CLIENT_NAME}}, тел {{PHONE}}, {{EMAIL}}", pii)).not.toThrow());
+});

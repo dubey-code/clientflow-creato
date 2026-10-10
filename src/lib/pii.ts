@@ -82,3 +82,19 @@ export function fillDeep<T>(value: T, pii: ClientPII = {}): T {
   }
   return value;
 }
+
+/** Final guard before AI: throws if any client PII or email/phone pattern remains. */
+export function assertNoPII(text: string, pii: ClientPII = {}): void {
+  const t = text ?? "";
+  const lower = t.toLowerCase();
+  const leaks: string[] = [];
+  for (const [key, value] of Object.entries(pii) as [keyof ClientPII, string | null | undefined][]) {
+    const v = value?.trim();
+    if (!v || v.length < 2) continue;
+    const parts = key === "name" ? v.split(/\s+/).filter((p) => p.length >= 3) : [v];
+    if (parts.some((p) => key === "name" ? new RegExp(`(?<![\\p{L}])${escapeRe(p)}(?![\\p{L}])`, "iu").test(t) : lower.includes(p.toLowerCase()))) leaks.push(key);
+  }
+  if (new RegExp(EMAIL_RE.source).test(t)) leaks.push("email-pattern");
+  for (const m of t.match(PHONE_RE) ?? []) if (m.replace(/\D/g, "").length >= 10) { leaks.push("phone-pattern"); break; }
+  if (leaks.length) throw new Error("Отправка в ИИ заблокирована: в тексте обнаружены персональные данные");
+}
