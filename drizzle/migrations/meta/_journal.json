@@ -8,6 +8,13 @@
       "when": 1791638915991,
       "tag": "0000_brief_platform",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791643692425,
+      "tag": "0001_ai_audit",
+      "breakpoints": true
     }
   ]
 }
