@@ -25,7 +25,7 @@ export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: Proje
     const qs = [...v.questions];
     const j = i + d;
     if (j < 0 || j >= qs.length) return;
-    [qs[i], qs[j]] = [qs[j], qs[i]];
+    const tmp = qs[i]!; qs[i] = qs[j]!; qs[j] = tmp;
     setV({ ...v, questions: qs });
   };
 

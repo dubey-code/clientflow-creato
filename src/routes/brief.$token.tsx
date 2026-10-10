@@ -56,9 +56,9 @@ function BriefPage() {
     e.preventDefault();
     for (const q of brief!.questions) {
       const a = answers[q.id];
-      if (q.required && (!a || (Array.isArray(a) && !a.length))) return toast.error(`Ответьте на вопрос: ${q.label}`);
+      if (q.required && (!a || (Array.isArray(a) && !a.length))) { toast.error(`Ответьте на вопрос: ${q.label}`); return; }
     }
-    if (!consent) return toast.error("Нужно согласие на обработку персональных данных");
+    if (!consent) { toast.error("Нужно согласие на обработку персональных данных"); return; }
     setBusy(true);
     try {
       const r = await submit({ data: { token, answers, contacts, consent: true } });
