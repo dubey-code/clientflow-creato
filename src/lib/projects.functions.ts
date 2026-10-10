@@ -4,6 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { decryptRow, encrypt } from "./crypto.server";
 import { generateOfferAI } from "./offer-ai.server";
 import { generateBriefQuestionsAI } from "./brief-ai.server";
+import { clarifyAI } from "./clarify-ai.server";
+import { pruneHiddenAnswers } from "./conditions";
 import { fillDeep, maskDeep, maskPII } from "./pii";
 import type { Answers, Offer, Question } from "./types";
 
@@ -13,6 +15,7 @@ const questionSchema = z.object({
   type: z.enum(["text", "textarea", "select", "checkbox"]),
   options: z.array(z.string().max(200)).max(30).optional(),
   required: z.boolean().optional(),
+  showIf: z.object({ questionId: z.string().min(1).max(60), values: z.array(z.string().max(200)).min(1).max(30) }).optional(),
 });
 const clientSchema = z.object({
   name: z.string().trim().max(200).optional().default(""),
@@ -112,6 +115,32 @@ export const generateBriefQuestions = createServerFn({ method: "POST" })
     return generateBriefQuestionsAI({
       title: maskPII(data.title, data.client),
       description: maskPII(data.description, data.client),
+    });
+  });
+
+export const clarifyProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid(), description: z.string().max(5000), notes: z.string().max(10000) }).parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { data: p, error } = await context.supabase.from("projects").select("title,questions,answers").eq("id", data.id).single();
+    if (error) throw new Error(error.message);
+    const { data: row } = await context.supabase.from("client_pii").select("*").eq("project_id", data.id).maybeSingle();
+    const client = await decryptRow(row);
+    const qs = p.questions as Question[];
+    const ans = (p.answers ?? {}) as Answers;
+    const answersText = [
+      ...qs.filter((q) => ans[q.id] !== undefined).map((q) => {
+        const a = ans[q.id];
+        return `- ${q.label}: ${Array.isArray(a) ? a.join(", ") : a || "—"}`;
+      }),
+      data.notes ? `Дополнительно:\n${data.notes}` : "",
+    ].join("\n");
+    // Mask client PII before anything reaches the AI.
+    return clarifyAI({
+      title: maskPII(p.title, client),
+      description: maskPII(data.description, client),
+      answersText: maskPII(answersText, client),
     });
   });
 
@@ -234,7 +263,7 @@ export const submitBrief = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const sb = await admin();
-    const { data: p } = await sb.from("projects").select("id,status,offer_token").eq("brief_token", data.token).maybeSingle();
+    const { data: p } = await sb.from("projects").select("id,status,offer_token,questions").eq("brief_token", data.token).maybeSingle();
     if (!p) throw new Error("Бриф не найден");
     if (p.status === "ready" || p.status === "submitted") return { offerToken: p.offer_token };
 
@@ -250,7 +279,7 @@ export const submitBrief = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     });
     const now = new Date().toISOString();
-    await sb.from("projects").update({ answers: data.answers, status: "submitted", submitted_at: now, consent_at: now }).eq("id", p.id);
+    await sb.from("projects").update({ answers: pruneHiddenAnswers(p.questions as Question[], data.answers), status: "submitted", submitted_at: now, consent_at: now }).eq("id", p.id);
     try {
       await runGeneration(p.id);
     } catch (e) {

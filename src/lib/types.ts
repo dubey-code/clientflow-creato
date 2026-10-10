@@ -6,7 +6,11 @@ export type Question = {
   type: QuestionType;
   options?: string[];
   required?: boolean;
+  /** Show only when the answer to another question matches one of `values`. */
+  showIf?: { questionId: string; values: string[] } | undefined;
 };
+
+export type Clarification = { missing: string[]; questions: Question[] };
 
 export type Offer = {
   headline: string;
