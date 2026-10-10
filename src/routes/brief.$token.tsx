@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Lock, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Lock, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { getBrief, submitBrief } from "@/lib/projects.functions";
 import type { Answers } from "@/lib/types";
@@ -72,6 +72,7 @@ function BriefPage() {
 
   return (
     <div className="min-h-screen bg-warm">
+      {busy && <SubmitSteps />}
       <div className="mx-auto max-w-2xl px-6 py-16">
         <p className="text-sm uppercase tracking-[0.2em] text-primary">Бриф</p>
         <h1 className="mt-3 text-4xl font-semibold">{brief.title}</h1>
@@ -107,10 +108,10 @@ function BriefPage() {
             <div className="flex items-center gap-2"><Lock className="h-4 w-4 text-success" /><h2 className="text-lg font-semibold">Контактные данные</h2></div>
             <p className="text-sm text-muted-foreground">Если данные уже есть у исполнителя, поля можно оставить пустыми.</p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2"><Label>ФИО</Label><Input maxLength={200} value={contacts.name} onChange={(e) => setContacts({ ...contacts, name: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Компания</Label><Input maxLength={200} value={contacts.company} onChange={(e) => setContacts({ ...contacts, company: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Телефон</Label><Input maxLength={40} value={contacts.phone} onChange={(e) => setContacts({ ...contacts, phone: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" maxLength={255} value={contacts.email} onChange={(e) => setContacts({ ...contacts, email: e.target.value })} /></div>
+              <PiiField label="ФИО" type="text" maxLength={200} value={contacts.name} onChange={(v) => setContacts({ ...contacts, name: v })} />
+              <PiiField label="Компания" type="text" maxLength={200} value={contacts.company} onChange={(v) => setContacts({ ...contacts, company: v })} />
+              <PiiField label="Телефон" type="text" maxLength={40} value={contacts.phone} onChange={(v) => setContacts({ ...contacts, phone: v })} />
+              <PiiField label="Email" type="email" maxLength={255} value={contacts.email} onChange={(v) => setContacts({ ...contacts, email: v })} />
             </div>
             <PrivacyBadge />
             <label className="flex items-start gap-3 text-sm">
@@ -123,6 +124,42 @@ function BriefPage() {
             {busy ? <><Loader2 className="animate-spin" /> Готовим предложение…</> : "Отправить и получить предложение"}
           </Button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function PiiField({ label, type, maxLength, value, onChange }: { label: string; type: string; maxLength: number; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 text-success" />{label}</Label>
+      <Input type={type} maxLength={maxLength} value={value} onChange={(e) => onChange(e.target.value)} className="border-success/50 focus-visible:ring-success" />
+      <p className="text-xs text-success">Шифруется · не передаётся в ИИ</p>
+    </div>
+  );
+}
+
+const STEPS = ["Шифруем персональные данные", "Скрываем их от ИИ", "Генерируем коммерческое предложение", "Подставляем ваши данные"];
+
+function SubmitSteps() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 1800);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 px-6 backdrop-blur">
+      <div className="w-full max-w-md space-y-4 rounded-3xl border bg-card p-8">
+        <h2 className="text-xl font-semibold">Готовим предложение</h2>
+        <ol className="space-y-3">
+          {STEPS.map((s, i) => (
+            <li key={s} className={`flex items-center gap-3 text-sm ${i <= step ? "text-foreground" : "text-muted-foreground"}`}>
+              {i < step ? <Check className="h-4 w-4 text-success" /> : i === step ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <span className="h-4 w-4 rounded-full border" />}
+              {s}
+            </li>
+          ))}
+        </ol>
+        <p className="flex items-start gap-2 rounded-xl bg-success/10 p-3 text-xs text-success"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />ФИО, телефон и email не отправляются в ИИ. Они подставляются только в готовое предложение.</p>
       </div>
     </div>
   );
