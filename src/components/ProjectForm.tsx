@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Lock, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, GitBranch, Lock, Plus, Sparkles, Trash2 } from "lucide-react";
 import { generateBriefQuestions } from "@/lib/projects.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,6 +100,7 @@ export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: Proje
                 </Select>
                 <label className="flex items-center gap-2 text-sm text-muted-foreground"><Switch checked={!!q.required} onCheckedChange={(c) => setQ(i, { required: c })} /> Обязательный</label>
               </div>
+              <ConditionEditor q={q} prev={v.questions.slice(0, i)} onChange={(showIf) => setQ(i, { showIf })} />
               {(q.type === "select" || q.type === "checkbox") && (
                 <Input placeholder="Варианты через запятую" value={(q.options ?? []).join(", ")} onChange={(e) => setQ(i, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })} />
               )}
@@ -109,5 +110,47 @@ export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: Proje
         <Button className="w-full" size="lg" disabled={busy}>{busy ? "Сохранение…" : submitLabel}</Button>
       </section>
     </form>
+  );
+}
+
+function ConditionEditor({ q, prev, onChange }: { q: Question; prev: Question[]; onChange: (c: Question["showIf"]) => void }) {
+  const parents = prev.filter((p) => (p.type === "select" || p.type === "checkbox") && (p.options?.length ?? 0) > 0);
+  const c = q.showIf;
+  const parent = parents.find((p) => p.id === c?.questionId);
+  if (!parents.length) return null;
+  return (
+    <div className="space-y-2 rounded-lg border border-dashed p-3">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <GitBranch className="h-4 w-4" /> Показывать
+        <Select
+          value={c?.questionId ?? "always"}
+          onValueChange={(id) => onChange(id === "always" ? undefined : { questionId: id, values: [] })}
+        >
+          <SelectTrigger className="h-8 w-64"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="always">всегда</SelectItem>
+            {parents.map((p) => <SelectItem key={p.id} value={p.id}>если ответ на «{(p.label || "без названия").slice(0, 40)}»</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      {c && parent && (
+        <div className="flex flex-wrap gap-2">
+          {parent.options!.map((o) => {
+            const on = c.values.includes(o);
+            return (
+              <button
+                type="button"
+                key={o}
+                onClick={() => onChange({ questionId: c.questionId, values: on ? c.values.filter((x) => x !== o) : [...c.values, o] })}
+                className={`rounded-full border px-3 py-1 text-xs transition ${on ? "border-primary bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {o}
+              </button>
+            );
+          })}
+          {!c.values.length && <span className="text-xs text-destructive">Выберите хотя бы один вариант</span>}
+        </div>
+      )}
+    </div>
   );
 }

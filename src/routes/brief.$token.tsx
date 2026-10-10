@@ -5,6 +5,7 @@ import { Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getBrief, submitBrief } from "@/lib/projects.functions";
 import type { Answers } from "@/lib/types";
+import { pruneHiddenAnswers, visibleQuestions } from "@/lib/conditions";
 import { PrivacyBadge } from "@/components/PrivacyBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,14 +55,14 @@ function BriefPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    for (const q of brief!.questions) {
+    for (const q of visibleQuestions(brief!.questions, answers)) {
       const a = answers[q.id];
       if (q.required && (!a || (Array.isArray(a) && !a.length))) { toast.error(`Ответьте на вопрос: ${q.label}`); return; }
     }
     if (!consent) { toast.error("Нужно согласие на обработку персональных данных"); return; }
     setBusy(true);
     try {
-      const r = await submit({ data: { token, answers, contacts, consent: true } });
+      const r = await submit({ data: { token, answers: pruneHiddenAnswers(brief!.questions, answers), contacts, consent: true } });
       nav({ to: "/offer/$token", params: { token: r.offerToken } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Ошибка отправки");
@@ -77,7 +78,7 @@ function BriefPage() {
         <p className="mt-3 text-muted-foreground">Ответьте на несколько вопросов — и сразу получите персональное коммерческое предложение.</p>
 
         <form onSubmit={onSubmit} className="mt-10 space-y-6">
-          {brief.questions.map((q, i) => (
+          {visibleQuestions(brief.questions, answers).map((q, i) => (
             <div key={q.id} className="space-y-3 rounded-2xl border bg-card p-6">
               <Label className="text-base">{i + 1}. {q.label}{q.required && <span className="text-primary"> *</span>}</Label>
               {q.type === "text" && <Input maxLength={1000} value={(answers[q.id] as string) ?? ""} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })} />}
