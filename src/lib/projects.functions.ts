@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { decryptRow, encrypt } from "./crypto.server";
 import { generateOfferAI } from "./offer-ai.server";
+import { generateBriefQuestionsAI } from "./brief-ai.server";
 import { fillDeep, maskDeep, maskPII } from "./pii";
 import type { Answers, Offer, Question } from "./types";
 
