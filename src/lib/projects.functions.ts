@@ -101,6 +101,20 @@ export const listProjects = createServerFn({ method: "GET" })
     );
   });
 
+export const generateBriefQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ title: z.string().trim().min(1).max(200), description: z.string().max(5000), client: clientSchema }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    // Mask client PII before anything reaches the AI.
+    return generateBriefQuestionsAI({
+      title: maskPII(data.title, data.client),
+      description: maskPII(data.description, data.client),
+    });
+  });
+
 export const createProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) =>
