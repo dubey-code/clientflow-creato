@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteProject, getProject, regenerateOffer, saveOffer, updateProject } from "@/lib/projects.functions";
 import type { Offer } from "@/lib/types";
-import { copyLink, StatusBadge } from "./admin.index";
+import { copyLink, StatusBadge } from "@/components/admin-helpers";
 
 export const Route = createFileRoute("/_authenticated/admin/$id")({
   head: () => ({ meta: [{ title: "Проект — Brieflow" }, { name: "description", content: "Ответы клиента и коммерческое предложение." }, { property: "og:title", content: "Проект — Brieflow" }, { property: "og:description", content: "Карточка проекта" }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),

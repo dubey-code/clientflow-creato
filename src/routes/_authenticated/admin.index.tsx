@@ -3,11 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { Copy, ExternalLink, Plus } from "lucide-react";
-import { toast } from "sonner";
+import { copyLink, StatusBadge } from "@/components/admin-helpers";
 import { AdminShell } from "@/components/AdminShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listProjects } from "@/lib/projects.functions";
 import { STATUS_LABEL } from "@/lib/types";
@@ -16,16 +15,6 @@ export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({ meta: [{ title: "Проекты — Brieflow" }, { name: "description", content: "Все проекты, брифы и предложения." }, { property: "og:title", content: "Проекты — Brieflow" }, { property: "og:description", content: "Учёт заявок" }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: () => <AdminShell><Projects /></AdminShell>,
 });
-
-export function copyLink(path: string) {
-  navigator.clipboard.writeText(`${window.location.origin}${path}`);
-  toast.success("Ссылка скопирована");
-}
-
-export function StatusBadge({ s }: { s: string }) {
-  const variant = s === "ready" ? "default" : s === "error" ? "destructive" : "secondary";
-  return <Badge variant={variant}>{STATUS_LABEL[s] ?? s}</Badge>;
-}
 
 function Projects() {
   const fn = useServerFn(listProjects);
