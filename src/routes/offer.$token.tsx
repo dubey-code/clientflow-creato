@@ -43,5 +43,5 @@ function OfferPage() {
       </div>
     );
   }
-  return <OfferView offer={data.offer} title={data.title} company={data.contact?.company} />;
+  return <OfferView offer={data.offer} title={data.title} company={data.contact?.company} contact={data.contact} token={Route.useParams().token} />;
 }

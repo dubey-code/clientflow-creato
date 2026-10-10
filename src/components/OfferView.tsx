@@ -1,8 +1,11 @@
 import { Check } from "lucide-react";
 import type { Offer } from "@/lib/types";
 import { PrivacyBadge } from "./PrivacyBadge";
+import { ClientContacts, type Contact } from "./ClientContacts";
+import { Link } from "@tanstack/react-router";
+import { FileText } from "lucide-react";
 
-export function OfferView({ offer, title, company }: { offer: Offer; title: string; company?: string | null }) {
+export function OfferView({ offer, title, company, contact, token }: { offer: Offer; title: string; company?: string | null; contact?: Contact | null; token?: string }) {
   return (
     <div className="min-h-screen">
       <section className="bg-warm border-b">
@@ -56,6 +59,12 @@ export function OfferView({ offer, title, company }: { offer: Offer; title: stri
         <section className="rounded-3xl bg-primary p-10 text-primary-foreground md:p-14">
           <p className="font-display text-2xl font-semibold md:text-3xl">{offer.cta}</p>
         </section>
+        <ClientContacts contact={contact} />
+        {token && (
+          <Link to="/offer/$token/brief" params={{ token }} className="inline-flex items-center gap-2 text-sm text-primary underline-offset-4 hover:underline">
+            <FileText className="h-4 w-4" /> Итоговый бриф с ответами
+          </Link>
+        )}
         <PrivacyBadge />
       </div>
     </div>
