@@ -72,12 +72,18 @@ export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: Proje
       </div>
 
       <section className="space-y-4 rounded-2xl border bg-card p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Вопросы брифа</h2>
-          <Button type="button" variant="outline" size="sm" onClick={() => setV({ ...v, questions: [...v.questions, { id: `q${Date.now()}`, label: "", type: "text" }] })}>
-            <Plus /> Вопрос
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" size="sm" disabled={generating} onClick={generate}>
+              <Sparkles /> {generating ? "Генерация…" : "Сгенерировать ИИ"}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setV({ ...v, questions: [...v.questions, { id: `q${Date.now()}`, label: "", type: "text" }] })}>
+              <Plus /> Вопрос
+            </Button>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">ИИ составит вопросы по названию и описанию проекта. Персональные данные клиента в ИИ не передаются.</p>
         <div className="space-y-3">
           {v.questions.map((q, i) => (
             <div key={q.id} className="space-y-3 rounded-xl border bg-background/40 p-4">
