@@ -7,7 +7,7 @@ export type Question = {
   options?: string[];
   required?: boolean;
   /** Show only when the answer to another question matches one of `values`. */
-  showIf?: { questionId: string; values: string[] };
+  showIf?: { questionId: string; values: string[] } | undefined;
 };
 
 export type Clarification = { missing: string[]; questions: Question[] };
