@@ -23,6 +23,22 @@ const TYPE_LABEL: Record<QuestionType, string> = { text: "Строка", textare
 export function ProjectForm({ initial, submitLabel, onSubmit }: { initial: ProjectFormValue; submitLabel: string; onSubmit: (v: ProjectFormValue) => Promise<void> }) {
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const genQuestions = useServerFn(generateBriefQuestions);
+  const generate = async () => {
+    if (!v.title.trim()) { toast.error("Сначала заполните название проекта"); return; }
+    setGenerating(true);
+    try {
+      const qs = await genQuestions({ data: { title: v.title, description: v.description, client: v.client } });
+      if (!qs.length) throw new Error("ИИ не вернул вопросы");
+      setV({ ...v, questions: qs });
+      toast.success("Вопросы сгенерированы — отредактируйте их ниже");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка генерации");
+    } finally {
+      setGenerating(false);
+    }
+  };
   const setQ = (i: number, patch: Partial<Question>) => setV({ ...v, questions: v.questions.map((q, j) => (j === i ? { ...q, ...patch } : q)) });
   const move = (i: number, d: number) => {
     const qs = [...v.questions];
